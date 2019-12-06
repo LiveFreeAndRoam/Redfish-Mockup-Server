@@ -290,6 +290,22 @@ class RfMockupServer(BaseHTTPRequestHandler):
         server_version = "RedfishMockupHTTPD_v" + tool_version
         event_id = 1
 
+        def get_payload(self, path):
+            # construct path "mockdir/path/to/resource/<filename>"
+            fpath = self.construct_path(path, 'index.json')
+
+            success, payload = self.get_cached_link(fpath)
+
+            if success:
+                # If data is wrapped in a "body" key, unwrap it
+                body = payload.get('Body')
+                if body is not None:
+                    payload = body
+            else:
+                logger.info("ERROR: Unable to get payload for {}".format(path))
+
+            return success, payload
+
         # Headers only request
         def do_HEAD(self):
             """do_HEAD"""
@@ -335,12 +351,11 @@ class RfMockupServer(BaseHTTPRequestHandler):
             logger.info("   GET: Headers: {}".format(self.headers))
 
             # construct path "mockdir/path/to/resource/<filename>"
-            fpath = self.construct_path(self.path, 'index.json')
             fpath_xml = self.construct_path(self.path, 'index.xml')
             fpath_headers = self.construct_path(self.path, 'headers.json')
             fpath_direct = self.construct_path(self.path, '')
 
-            success, payload = self.get_cached_link(fpath)
+            success, payload = self.get_payload(self.path)
 
             scheme, netloc, path, params, query, fragment = urlparse(self.path)
             query_pieces = parse_qs(query, keep_blank_values=True)
@@ -394,7 +409,18 @@ class RfMockupServer(BaseHTTPRequestHandler):
                     else:
                         pass
 
-                    output_data['Members'] = my_members
+                    # Query ?$expand=[.*~]
+                    if query_pieces.get('$expand') is not None:
+                        my_expanded_members = []
+                        for member in my_members:
+                            success, member_payload = self.get_payload(member['@odata.id'])
+                            if success:
+                                my_expanded_members.append(member_payload)
+
+                        output_data['Members'] = my_expanded_members
+                        # logger.info("*** EXPANDED OUTPUT: {}".format(output_data))
+                    else:
+                        output_data['Members'] = my_members
                     pass
 
                 encoded_data = json.dumps(output_data, sort_keys=True, indent=4, separators=(",", ": ")).encode()
