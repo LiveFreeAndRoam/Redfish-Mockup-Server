@@ -306,6 +306,15 @@ class RfMockupServer(BaseHTTPRequestHandler):
 
             return success, payload
 
+        # Respond to CORS requests; allow everything
+        # https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+        # https://www.html5rocks.com/static/images/cors_server_flowchart.png
+        def send_cors_headers(self):
+            # allow all CORS requests
+            self.send_header("Access-Control-Allow-Headers", "*")
+            self.send_header("Access-Control-Allow-Methods", "*")
+            self.send_header("Access-Control-Allow-Origin", "*")
+
         # Headers only request
         def do_HEAD(self):
             """do_HEAD"""
@@ -341,6 +350,18 @@ class RfMockupServer(BaseHTTPRequestHandler):
                     self.send_response(404)
             else:
                 self.send_response(404)
+            self.send_cors_headers()
+            self.end_headers()
+
+        # CORS OPTIONS requested by browser (a pre-flight request)
+        # https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+        def do_OPTIONS(self):
+            """do_OPTIONS"""
+            logger.info("Options: ")
+            logger.info("   OPTIONS: Headers: {}".format(self.headers))
+
+            self.send_response(200)
+            self.send_cors_headers()
             self.end_headers()
 
         def do_GET(self):
@@ -366,6 +387,7 @@ class RfMockupServer(BaseHTTPRequestHandler):
             # '/' and '/redfish'
             if(self.path == '/' and self.server.shortForm):
                 self.send_response(404)
+                self.send_cors_headers()
                 self.end_headers()
 
             elif(self.path in ['/redfish', '/redfish/'] and self.server.shortForm):
@@ -375,6 +397,7 @@ class RfMockupServer(BaseHTTPRequestHandler):
                 else:
                     self.send_header("Content-Type", "application/json")
                     self.send_header("OData-Version", "4.0")
+                self.send_cors_headers()
                 self.end_headers()
                 self.wfile.write(json.dumps({'v1': '/redfish/v1'}, indent=4).encode())
 
@@ -388,6 +411,8 @@ class RfMockupServer(BaseHTTPRequestHandler):
                 else:
                     self.send_header("Content-Type", "application/json")
                     self.send_header("OData-Version", "4.0")
+
+                self.send_cors_headers()
                 self.end_headers()
 
                 # Strip the @Redfish.Copyright property
@@ -438,11 +463,13 @@ class RfMockupServer(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "application/" + file_extension + ";odata.metadata=minimal;charset=utf-8")
                 self.send_header("OData-Version", "4.0")
+                self.send_cors_headers()
                 self.end_headers()
                 self.wfile.write(f.read().encode())
                 f.close()
             else:
                 self.send_response(404)
+                self.send_cors_headers()
                 self.end_headers()
 
         def do_PATCH(self):
@@ -490,6 +517,7 @@ class RfMockupServer(BaseHTTPRequestHandler):
                 else:
                     self.send_response(400)
 
+                self.send_cors_headers()
                 self.end_headers()
 
         def do_PUT(self):
@@ -510,6 +538,7 @@ class RfMockupServer(BaseHTTPRequestHandler):
                 # end headers
                 self.send_response(405)
 
+                self.send_cors_headers()
                 self.end_headers()
 
         def do_POST(self):
@@ -556,6 +585,7 @@ class RfMockupServer(BaseHTTPRequestHandler):
                             self.send_response(204)
                             self.send_header("Location", newpath)
                             self.send_header("Content-Length", "0")
+                            self.send_cors_headers()
                             self.end_headers()
 
                     # eventing framework
@@ -570,6 +600,7 @@ class RfMockupServer(BaseHTTPRequestHandler):
                             self.send_response(404)
                 else:
                     self.send_response(405)
+                self.send_cors_headers()
                 self.end_headers()
 
         def do_DELETE(self):
@@ -602,6 +633,7 @@ class RfMockupServer(BaseHTTPRequestHandler):
                 else:
                     self.send_response(404)
 
+                self.send_cors_headers()
                 self.end_headers()
 
         # Response time calculation Algorithm
